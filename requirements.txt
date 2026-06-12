@@ -1,0 +1,39 @@
+# ===== Core =====
+google-adk
+google-genai
+
+# ===== API =====
+fastapi
+uvicorn[standard]
+
+# ===== Validation =====
+pydantic>=2.10
+pydantic-settings
+
+# ===== Configuration =====
+python-dotenv
+
+# ===== Logging =====
+loguru
+
+# ===== Google Cloud =====
+google-cloud-bigquery
+google-auth
+
+# ===== UI  =====
+streamlit
+
+# ===== Testing =====
+pytest
+pytest-asyncio
+pytest-cov
+
+# ===== Utilities =====
+httpx
+tenacity
+
+# ===== Development =====
+black
+isort
+ruff
+mypy

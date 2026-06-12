@@ -1,0 +1,64 @@
+[
+  {
+    "name": "fetus_id",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "Unique identifier for the fetus"
+  },
+  {
+    "name": "patient_id",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "Unique identifier for the mother/patient"
+  },
+  {
+    "name": "gestational_age_weeks",
+    "type": "INTEGER",
+    "mode": "REQUIRED",
+    "description": "Gestational age of the fetus in weeks"
+  },
+  {
+    "name": "scan_date",
+    "type": "DATE",
+    "mode": "REQUIRED",
+    "description": "The date the scan was performed"
+  },
+  {
+    "name": "vitals",
+    "type": "RECORD",
+    "mode": "NULLABLE",
+    "description": "Nested records of fetal vital metrics",
+    "fields": [
+      {
+        "name": "fetal_heart_rate_bpm",
+        "type": "INTEGER",
+        "mode": "NULLABLE",
+        "description": "Fetal heart rate in beats per minute"
+      },
+      {
+        "name": "movement_count_per_hour",
+        "type": "INTEGER",
+        "mode": "NULLABLE",
+        "description": "Fetal movement count observed per hour"
+      },
+      {
+        "name": "amniotic_fluid_index_cm",
+        "type": "FLOAT",
+        "mode": "NULLABLE",
+        "description": "Amniotic fluid index in centimeters"
+      },
+      {
+        "name": "estimated_fetal_weight_g",
+        "type": "INTEGER",
+        "mode": "NULLABLE",
+        "description": "Estimated fetal weight in grams"
+      }
+    ]
+  },
+  {
+    "name": "notes",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "Clinical scanning notes and comments"
+  }
+]

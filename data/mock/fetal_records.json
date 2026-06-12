@@ -1,0 +1,132 @@
+[
+  {
+    "fetus_id": "FET-1001",
+    "patient_id": "PAT-2001",
+    "gestational_age_weeks": 32,
+    "scan_date": "2026-05-14",
+    "vitals": {
+      "fetal_heart_rate_bpm": 140,
+      "movement_count_per_hour": 12,
+      "amniotic_fluid_index_cm": 12.0,
+      "estimated_fetal_weight_g": 1850
+    },
+    "notes": "Normal baseline heart rate, reactive trace. Healthy."
+  },
+  {
+    "fetus_id": "FET-1002",
+    "patient_id": "PAT-2002",
+    "gestational_age_weeks": 34,
+    "scan_date": "2026-05-15",
+    "vitals": {
+      "fetal_heart_rate_bpm": 135,
+      "movement_count_per_hour": 15,
+      "amniotic_fluid_index_cm": 13.5,
+      "estimated_fetal_weight_g": 2200
+    },
+    "notes": "Appropriate growth, good fetal activity. Healthy."
+  },
+  {
+    "fetus_id": "FET-1003",
+    "patient_id": "PAT-2003",
+    "gestational_age_weeks": 28,
+    "scan_date": "2026-05-16",
+    "vitals": {
+      "fetal_heart_rate_bpm": 148,
+      "movement_count_per_hour": 10,
+      "amniotic_fluid_index_cm": 14.2,
+      "estimated_fetal_weight_g": 1150
+    },
+    "notes": "Fetal parameters within normal limits. Healthy."
+  },
+  {
+    "fetus_id": "FET-1004",
+    "patient_id": "PAT-2004",
+    "gestational_age_weeks": 36,
+    "scan_date": "2026-05-17",
+    "vitals": {
+      "fetal_heart_rate_bpm": 130,
+      "movement_count_per_hour": 14,
+      "amniotic_fluid_index_cm": 11.0,
+      "estimated_fetal_weight_g": 2700
+    },
+    "notes": "Cephalic presentation, stable vitals. Healthy."
+  },
+  {
+    "fetus_id": "FET-1005",
+    "patient_id": "PAT-2005",
+    "gestational_age_weeks": 30,
+    "scan_date": "2026-05-18",
+    "vitals": {
+      "fetal_heart_rate_bpm": 162,
+      "movement_count_per_hour": 6,
+      "amniotic_fluid_index_cm": 8.2,
+      "estimated_fetal_weight_g": 1300
+    },
+    "notes": "Mild fetal tachycardia and slightly reduced movement. At-risk."
+  },
+  {
+    "fetus_id": "FET-1006",
+    "patient_id": "PAT-2006",
+    "gestational_age_weeks": 33,
+    "scan_date": "2026-05-19",
+    "vitals": {
+      "fetal_heart_rate_bpm": 138,
+      "movement_count_per_hour": 10,
+      "amniotic_fluid_index_cm": 5.2,
+      "estimated_fetal_weight_g": 1600
+    },
+    "notes": "Borderline oligohydramnios and mild growth restriction. At-risk."
+  },
+  {
+    "fetus_id": "FET-1007",
+    "patient_id": "PAT-2007",
+    "gestational_age_weeks": 29,
+    "scan_date": "2026-05-20",
+    "vitals": {
+      "fetal_heart_rate_bpm": 112,
+      "movement_count_per_hour": 8,
+      "amniotic_fluid_index_cm": 10.5,
+      "estimated_fetal_weight_g": 1200
+    },
+    "notes": "Borderline baseline heart rate, follow up recommended. At-risk."
+  },
+  {
+    "fetus_id": "FET-1008",
+    "patient_id": "PAT-2008",
+    "gestational_age_weeks": 32,
+    "scan_date": "2026-05-21",
+    "vitals": {
+      "fetal_heart_rate_bpm": 95,
+      "movement_count_per_hour": 2,
+      "amniotic_fluid_index_cm": 3.5,
+      "estimated_fetal_weight_g": 1500
+    },
+    "notes": "Severe fetal bradycardia and oligohydramnios. Urgent clinical intervention required. Critical."
+  },
+  {
+    "fetus_id": "FET-1009",
+    "patient_id": "PAT-2009",
+    "gestational_age_weeks": 35,
+    "scan_date": "2026-05-22",
+    "vitals": {
+      "fetal_heart_rate_bpm": 175,
+      "movement_count_per_hour": 3,
+      "amniotic_fluid_index_cm": 4.0,
+      "estimated_fetal_weight_g": 1900
+    },
+    "notes": "Severe tachycardia with low amniotic fluid. Critical."
+  },
+  {
+    "fetus_id": "FET-1010",
+    "patient_id": "PAT-2010",
+    "gestational_age_weeks": 31,
+    "scan_date": "2026-05-23",
+    "vitals": {
+      "fetal_heart_rate_bpm": 100,
+      "movement_count_per_hour": 1,
+      "amniotic_fluid_index_cm": 2.8,
+      "estimated_fetal_weight_g": 1250
+    },
+    "notes": "Severe fetal distress, minimal movement, anhydramnios. Critical."
+  }
+]

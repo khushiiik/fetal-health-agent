@@ -1,0 +1,29 @@
+{
+  "fetal_heart_rate_bpm": {
+    "min_normal": 110,
+    "max_normal": 160,
+    "unit": "bpm"
+  },
+  "movement_count_per_hour": {
+    "min_normal": 10,
+    "unit": "counts/hr"
+  },
+  "amniotic_fluid_index_cm": {
+    "min_normal": 5.0,
+    "max_normal": 25.0,
+    "unit": "cm"
+  },
+  "estimated_fetal_weight_g_by_week": {
+    "26": { "min_normal": 800, "max_normal": 1100 },
+    "28": { "min_normal": 1000, "max_normal": 1350 },
+    "29": { "min_normal": 1150, "max_normal": 1500 },
+    "30": { "min_normal": 1300, "max_normal": 1700 },
+    "31": { "min_normal": 1450, "max_normal": 1900 },
+    "32": { "min_normal": 1600, "max_normal": 2100 },
+    "33": { "min_normal": 1800, "max_normal": 2300 },
+    "34": { "min_normal": 2000, "max_normal": 2500 },
+    "35": { "min_normal": 2200, "max_normal": 2800 },
+    "36": { "min_normal": 2400, "max_normal": 3100 },
+    "38": { "min_normal": 2800, "max_normal": 3600 }
+  }
+}
