@@ -1,7 +1,11 @@
 import os
 from typing import Optional
+from dotenv import load_dotenv
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from google.adk.models.google_llm import Gemini
+
+# Force loading environment variables from .env to override system environment
+load_dotenv(override=True)
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -49,4 +53,10 @@ if settings.GEMINI_API_KEY:
 
 def get_llm() -> Gemini:
     """Get initialized Gemini LLM connection."""
+    gemini_key = os.environ.get("GEMINI_API_KEY")
+    if not gemini_key:
+        project_id = settings.GOOGLE_CLOUD_PROJECT or "fetal-health-agent"
+        model_name = f"projects/{project_id}/locations/us-central1/publishers/google/models/{settings.GEMINI_MODEL}"
+        return Gemini(model=model_name)
     return Gemini(model=settings.GEMINI_MODEL)
+

@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
 from datetime import date, datetime
 from typing import Optional
-from .vitals_analysis import VitalsAnalysis, HealthClassification, VitalResult
+from .vitals_analysis import VitalsAnalysis
 
 
 class ReportHeader(BaseModel):
