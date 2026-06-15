@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: Optional[str] = None
     GEMINI_MODEL: str
 
+
     DATA_SOURCE: str
 
     # Path variables
@@ -48,15 +49,14 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
+print(settings.GEMINI_API_KEY)
+print(os.environ.get("GEMINI_API_KEY"))
+
 if settings.GEMINI_API_KEY:
     os.environ["GEMINI_API_KEY"] = settings.GEMINI_API_KEY
 
 def get_llm() -> Gemini:
     """Get initialized Gemini LLM connection."""
-    gemini_key = os.environ.get("GEMINI_API_KEY")
-    if not gemini_key:
-        project_id = settings.GOOGLE_CLOUD_PROJECT or "fetal-health-agent"
-        model_name = f"projects/{project_id}/locations/us-central1/publishers/google/models/{settings.GEMINI_MODEL}"
-        return Gemini(model=model_name)
+    print("Loaded key:", os.environ.get("GEMINI_API_KEY")[:10])
     return Gemini(model=settings.GEMINI_MODEL)
 

@@ -174,10 +174,11 @@ def format_report(
             )
         )
 
-    return DiagnosticReport(
+    report = DiagnosticReport(
         header=header,
         summary=summary,
         vitals_breakdown=breakdown,
         analysis=analysis,
         notes=record.notes,
     )
+    return report.model_dump(mode="json")

@@ -1,4 +1,3 @@
-import os
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from google import genai
@@ -25,16 +24,9 @@ def read_root():
 def test_gemini(request: GeminiRequest):
     """Test endpoint to generate content using Gemini model."""
     try:
-        gemini_key = os.environ.get("GEMINI_API_KEY")
-        if not gemini_key:
-            project_id = settings.GOOGLE_CLOUD_PROJECT or "fetal-health-agent"
-            model_name = f"projects/{project_id}/locations/us-central1/publishers/google/models/{settings.GEMINI_MODEL}"
-            client = genai.Client(vertexai=True)
-        else:
-            model_name = settings.GEMINI_MODEL
-            client = genai.Client()
+        client = genai.Client()
         response = client.models.generate_content(
-            model=model_name, contents=request.text
+            model=settings.GEMINI_MODEL, contents=request.text
         )
         return {"response": response.text}
     except ClientError as e:

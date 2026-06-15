@@ -2,6 +2,7 @@ from datetime import date
 from app.models.fetal_record import FetalRecord, VitalsData
 from app.models.vitals_analysis import VitalResult, VitalStatus, VitalUnit, HealthClassification, VitalsAnalysis, ReferenceRange
 from app.models.error_response import NotFound
+from app.models.diagnostic_report import DiagnosticReport
 from app.tools.sql_tools import get_schema, execute_sql_query
 from app.tools.research_tools import (
     lookup_reference_range,
@@ -22,19 +23,20 @@ def test_get_schema():
 
 
 def test_execute_sql_query_success():
-    """Verify that execute_sql_query returns a FetalRecord for valid fetus IDs."""
-    # FET-1001 is a known mock fetus ID (typically healthy)
-    record = execute_sql_query("FET-1001")
-    assert isinstance(record, FetalRecord)
+    """Verify that execute_sql_query returns a valid serializable dict for valid fetus IDs."""
+    record_dict = execute_sql_query("FET-1001")
+    assert isinstance(record_dict, dict)
+    record = FetalRecord.model_validate(record_dict)
     assert record.fetus_id == "FET-1001"
     assert record.patient_id == "PAT-2001"
 
 
 def test_execute_sql_query_not_found():
-    """Verify execute_sql_query returns NotFound for non-existent fetus IDs."""
-    record = execute_sql_query("FET-NON-EXISTENT")
-    assert isinstance(record, NotFound)
-    assert record.fetus_id == "FET-NON-EXISTENT"
+    """Verify execute_sql_query returns a valid serializable dict for non-existent fetus IDs."""
+    record_dict = execute_sql_query("FET-NON-EXISTENT")
+    assert isinstance(record_dict, dict)
+    not_found = NotFound.model_validate(record_dict)
+    assert not_found.fetus_id == "FET-NON-EXISTENT"
 
 
 def test_lookup_reference_range():
@@ -193,8 +195,10 @@ def test_format_report():
     )
     
     summary = generate_summary(analysis)
-    report = format_report(analysis, summary, record)
+    report_dict = format_report(analysis, summary, record)
 
+    assert isinstance(report_dict, dict)
+    report = DiagnosticReport.model_validate(report_dict)
     assert report.header.fetus_id == "FET-1001"
     assert report.header.patient_id == "PAT-2031"
     assert report.header.gestational_age_weeks == 32

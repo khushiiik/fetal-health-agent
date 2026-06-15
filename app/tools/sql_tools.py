@@ -10,4 +10,7 @@ def get_schema() -> dict:
 def execute_sql_query(fetus_id: str) -> FetalRecord | NotFound:
     """Fetch the fetal record for a given fetus ID."""
     source = get_data_source()
-    return source.get_record(fetus_id)
+    record = source.get_record(fetus_id)
+    if hasattr(record, "model_dump"):
+        return record.model_dump(mode="json")
+    return record
