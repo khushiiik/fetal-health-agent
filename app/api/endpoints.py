@@ -54,7 +54,7 @@ async def chat(request: ChatRequest):
             prompt += f"\nUser Question: {request.message}\nAnswer:"
 
             request_payload = LlmRequest(
-                model=settings.GEMINI_MODEL,
+                model=getattr(model, "model", settings.GEMINI_MODEL),
                 contents=[
                     types.Content(
                         role="user",
@@ -226,7 +226,7 @@ async def chat_stream(request: ChatRequest):
                 prompt += f"\nUser Question: {request.message}\nAnswer:"
 
                 request_payload = LlmRequest(
-                    model=settings.GEMINI_MODEL,
+                    model=getattr(model, "model", settings.GEMINI_MODEL),
                     contents=[
                         types.Content(
                             role="user",

@@ -6,7 +6,6 @@ import httpx
 
 st.set_page_config(
     page_title="Fetal Health Multi-Agent Dashboard",
-    page_icon="👶",
     layout="wide"
 )
 
@@ -31,9 +30,6 @@ if "pipeline_states" not in st.session_state:
         "SQL Agent": "Idle",
         "Research Agent": "Idle"
     }
-if "dark_mode" not in st.session_state:
-    st.session_state.dark_mode = False
-
 # Sidebar
 st.sidebar.title("Settings")
 
@@ -41,23 +37,12 @@ st.sidebar.title("Settings")
 backend_url = st.sidebar.text_input("Backend API URL", value="http://localhost:8000/api")
 st.session_state.backend_url = backend_url
 
-# Dark Mode Toggle
-dark_mode = st.sidebar.toggle("Dark Mode", value=st.session_state.dark_mode)
-st.session_state.dark_mode = dark_mode
-
 # Theme Styling Application
-if st.session_state.dark_mode:
-    bg_color = "#000000"
-    text_color = "#ffffff"
-    border_color = "#333333"
-    card_bg = "#1e1e1e"
-    sidebar_bg = "#121212"
-else:
-    bg_color = "#ffffff"
-    text_color = "#000000"
-    border_color = "#e0e0e0"
-    card_bg = "#f9f9f9"
-    sidebar_bg = "#f1f1f1"
+bg_color = "#000000"
+text_color = "#ffffff"
+border_color = "#333333"
+card_bg = "#1e1e1e"
+sidebar_bg = "#121212"
 
 theme_css = f"""
 <style>
@@ -101,220 +86,34 @@ st.title("Fetal Health Multi-Agent Monitoring Dashboard")
 st.markdown("Monitor the execution of the fetal health agent pipeline and view generated diagnostic reports.")
 st.markdown("---")
 
-# Layout columns: Left for control & progress, Right for logs
-col1, col2 = st.columns([1, 1])
-
-with col1:
-    st.subheader("Input Section")
-    fetus_id = st.text_input("Enter Fetus ID", value="FET-1005")
-    
-    if st.button("Analyze", type="primary"):
-        if not fetus_id.strip():
-            st.error("Please enter a valid Fetus ID")
-        else:
-            # Reset states for a new analysis run
-            st.session_state.session_id = str(uuid.uuid4())
-            st.session_state.current_report = None
-            st.session_state.current_report_markdown = None
-            st.session_state.current_logs = []
-            st.session_state.current_fetus_id = fetus_id.strip()
-            st.session_state.chat_history = []
-            st.session_state.pipeline_states = {
-                "Orchestrator": "Running",
-                "SQL Agent": "Idle",
-                "Research Agent": "Idle"
-            }
-            
-            # Placeholders for real-time visualization updates
-            status_placeholder = st.empty()
-            logs_placeholder = st.empty()
-            
-            def render_status(states):
-                with status_placeholder.container():
-                    st.subheader("Pipeline Status")
-                    icons = {
-                        "Idle": "⚪",
-                        "Running": "🟡",
-                        "Completed": "✅",
-                        "Failed": "❌"
-                    }
-                    st.markdown(
-                        f"""
-                        <div class="card-container">
-                            <p>{icons[states['Orchestrator']]} <b>Orchestrator</b>: {states['Orchestrator']}</p>
-                            <p>{icons[states['SQL Agent']]} <b>SQL Agent</b>: {states['SQL Agent']}</p>
-                            <p>{icons[states['Research Agent']]} <b>Research Agent</b>: {states['Research Agent']}</p>
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
-            
-            def render_logs(logs):
-                with logs_placeholder.container():
-                    st.subheader("Tool Execution Log")
-                    if not logs:
-                        st.write("No execution logs yet...")
-                        return
-                    for log in logs:
-                        st.markdown(
-                            f"""
-                            <div class="card-container" style="border-left: 4px solid #0066cc;">
-                                <span style="font-size: 0.8rem; color: #888;">[{log['timestamp']}]</span><br>
-                                <b>Agent:</b> {log['agent']}<br>
-                                <b>Tool:</b> <code style="color: #d63384;">{log['tool']}</code><br>
-                                <b>Input:</b> <code>{log['input']}</code><br>
-                                <b>Output:</b> {log['output']}<br>
-                            </div>
-                            """,
-                            unsafe_allow_html=True
-                        )
-            
-            # Perform stream request
-            try:
-                render_status(st.session_state.pipeline_states)
-                render_logs(st.session_state.current_logs)
-                
-                with httpx.stream(
-                    "POST",
-                    f"{backend_url}/chat/stream",
-                    json={"message": f"Analyze fetus {fetus_id.strip()}", "session_id": st.session_state.session_id},
-                    timeout=60.0
-                ) as r:
-                    for line in r.iter_lines():
-                        if not line:
-                            continue
-                        event = json.loads(line)
-                        event_type = event.get("type")
-                        
-                        if event_type == "error":
-                            st.session_state.pipeline_states["Orchestrator"] = "Failed"
-                            for k, v in st.session_state.pipeline_states.items():
-                                if v == "Running":
-                                    st.session_state.pipeline_states[k] = "Failed"
-                            render_status(st.session_state.pipeline_states)
-                            st.error(f"Backend execution failed: {event.get('error')}")
-                            break
-                            
-                        elif event_type == "event":
-                            data = event.get("data", {})
-                            author = data.get("author", "")
-                            node_name = data.get("node_info", {}).get("name") if data.get("node_info") else author
-                            
-                            # Update pipeline visual states based on active node
-                            if node_name == "sql_agent":
-                                st.session_state.pipeline_states["Orchestrator"] = "Running"
-                                st.session_state.pipeline_states["SQL Agent"] = "Running"
-                            elif node_name == "research_agent":
-                                st.session_state.pipeline_states["SQL Agent"] = "Completed"
-                                st.session_state.pipeline_states["Research Agent"] = "Running"
-                            
-                            render_status(st.session_state.pipeline_states)
-                            
-                            # Parse tool executions
-                            parts = data.get("content", {}).get("parts", []) if data.get("content") else []
-                            for part in parts:
-                                if part.get("function_call"):
-                                    fc = part["function_call"]
-                                    st.session_state.current_logs.append({
-                                        "timestamp": datetime.datetime.now().strftime("%H:%M:%S"),
-                                        "agent": "SQL Agent" if node_name == "sql_agent" else "Research Agent",
-                                        "tool": fc.get("name", "unknown"),
-                                        "input": json.dumps(fc.get("args", {})),
-                                        "output": "Running..."
-                                    })
-                                    render_logs(st.session_state.current_logs)
-                                    
-                                elif part.get("function_response"):
-                                    fr = part["function_response"]
-                                    tool_name = fr.get("name", "")
-                                    raw_resp = fr.get("response")
-                                    
-                                    # Output summarizer
-                                    summary_text = "Completed"
-                                    if tool_name == "fetch_fetal_record":
-                                        if isinstance(raw_resp, dict) and "patient_id" in raw_resp:
-                                            summary_text = f"Record Found (Patient: {raw_resp['patient_id']})"
-                                        elif isinstance(raw_resp, dict) and "error" in raw_resp:
-                                            summary_text = f"Fetus not found: {raw_resp.get('error')}"
-                                        else:
-                                            summary_text = "Fetus not found"
-                                    elif tool_name == "analyse_vitals":
-                                        if isinstance(raw_resp, list):
-                                            abnormal = sum(1 for x in raw_resp if x.get("status") == "abnormal")
-                                            borderline = sum(1 for x in raw_resp if x.get("status") == "borderline")
-                                            summary_text = f"Analyzed vitals. Abnormal findings: {abnormal}, Borderline: {borderline}"
-                                    elif tool_name == "format_report" or tool_name == "run_fetal_analysis":
-                                        summary_text = "Diagnostic report generated"
-                                    
-                                    # Match tool response to tool call log
-                                    updated = False
-                                    for log in reversed(st.session_state.current_logs):
-                                        if log["tool"] == tool_name and log["output"] == "Running...":
-                                            log["output"] = summary_text
-                                            updated = True
-                                            break
-                                    if not updated:
-                                        st.session_state.current_logs.append({
-                                            "timestamp": datetime.datetime.now().strftime("%H:%M:%S"),
-                                            "agent": "SQL Agent" if node_name == "sql_agent" else "Research Agent",
-                                            "tool": tool_name,
-                                            "input": "N/A",
-                                            "output": summary_text
-                                        })
-                                    render_logs(st.session_state.current_logs)
-                                    
-                        elif event_type == "complete":
-                            st.session_state.pipeline_states = {
-                                "Orchestrator": "Completed",
-                                "SQL Agent": "Completed",
-                                "Research Agent": "Completed"
-                            }
-                            render_status(st.session_state.pipeline_states)
-                            
-                            st.session_state.current_report = event.get("report")
-                            st.session_state.current_report_markdown = event.get("report_markdown")
-                            
-                            # Classification for history log
-                            classification = "healthy"
-                            if st.session_state.current_report:
-                                analysis = st.session_state.current_report.get("analysis", {})
-                                classification = analysis.get("overall_classification", "healthy")
-                            
-                            # Add to Session History
-                            st.session_state.history.append({
-                                "session_id": st.session_state.session_id,
-                                "fetus_id": st.session_state.current_fetus_id,
-                                "classification": classification,
-                                "timestamp": datetime.datetime.now().strftime("%H:%M %p"),
-                                "report": st.session_state.current_report,
-                                "report_markdown": st.session_state.current_report_markdown,
-                                "logs": st.session_state.current_logs,
-                                "chat_history": []
-                            })
-                            st.success("Analysis complete!")
-                            st.rerun()
-            except Exception as ex:
-                st.error(f"Failed to communicate with backend: {str(ex)}")
-
-with col1:
-    # If not in progress but report is loaded
-    if st.session_state.current_report and st.session_state.pipeline_states["Orchestrator"] == "Completed":
+# Helper functions for rendering status and logs
+def render_status(placeholder, states):
+    with placeholder.container():
         st.subheader("Pipeline Status")
+        icons = {
+            "Idle": "⚪",
+            "Running": "🟡",
+            "Completed": "✅",
+            "Failed": "❌"
+        }
         st.markdown(
             f"""
             <div class="card-container">
-                <p>✅ <b>Orchestrator</b>: Completed</p>
-                <p>✅ <b>SQL Agent</b>: Completed</p>
-                <p>✅ <b>Research Agent</b>: Completed</p>
+                <p>{icons[states['Orchestrator']]} <b>Orchestrator</b>: {states['Orchestrator']}</p>
+                <p>{icons[states['SQL Agent']]} <b>SQL Agent</b>: {states['SQL Agent']}</p>
+                <p>{icons[states['Research Agent']]} <b>Research Agent</b>: {states['Research Agent']}</p>
             </div>
             """,
             unsafe_allow_html=True
         )
 
-with col2:
-    if st.session_state.current_logs:
+def render_logs(placeholder, logs):
+    with placeholder.container():
         st.subheader("Tool Execution Log")
-        for log in st.session_state.current_logs:
+        if not logs:
+            st.write("No execution logs yet...")
+            return
+        for log in logs:
             st.markdown(
                 f"""
                 <div class="card-container" style="border-left: 4px solid #0066cc;">
@@ -327,6 +126,170 @@ with col2:
                 """,
                 unsafe_allow_html=True
             )
+
+# Layout columns: Left for control & progress, Right for logs
+col1, col2 = st.columns([1, 1])
+
+with col1:
+    st.subheader("Input Section")
+    fetus_id = st.text_input("Enter Fetus ID", value="FET-1005")
+    analyze_clicked = st.button("Analyze", type="primary")
+    st.markdown("---")
+    status_placeholder = st.empty()
+
+with col2:
+    logs_placeholder = st.empty()
+
+# Always render current status at page load
+render_status(status_placeholder, st.session_state.pipeline_states)
+
+# Render logs if they exist or if currently running
+if st.session_state.current_logs or st.session_state.pipeline_states["Orchestrator"] == "Running":
+    render_logs(logs_placeholder, st.session_state.current_logs)
+
+if analyze_clicked:
+    if not fetus_id.strip():
+        st.error("Please enter a valid Fetus ID")
+    else:
+        # Reset states for a new analysis run
+        st.session_state.session_id = str(uuid.uuid4())
+        st.session_state.current_report = None
+        st.session_state.current_report_markdown = None
+        st.session_state.current_logs = []
+        st.session_state.current_fetus_id = fetus_id.strip()
+        st.session_state.chat_history = []
+        st.session_state.pipeline_states = {
+            "Orchestrator": "Running",
+            "SQL Agent": "Idle",
+            "Research Agent": "Idle"
+        }
+        
+        # Perform stream request
+        try:
+            render_status(status_placeholder, st.session_state.pipeline_states)
+            render_logs(logs_placeholder, st.session_state.current_logs)
+            
+            with httpx.stream(
+                "POST",
+                f"{backend_url}/chat/stream",
+                json={"message": f"Analyze fetus {fetus_id.strip()}", "session_id": st.session_state.session_id},
+                timeout=60.0
+            ) as r:
+                for line in r.iter_lines():
+                    if not line:
+                        continue
+                    event = json.loads(line)
+                    event_type = event.get("type")
+                    
+                    if event_type == "error":
+                        st.session_state.pipeline_states["Orchestrator"] = "Failed"
+                        for k, v in st.session_state.pipeline_states.items():
+                            if v == "Running":
+                                st.session_state.pipeline_states[k] = "Failed"
+                        render_status(status_placeholder, st.session_state.pipeline_states)
+                        st.error(f"Backend execution failed: {event.get('error')}")
+                        break
+                        
+                    elif event_type == "event":
+                        data = event.get("data", {})
+                        author = data.get("author", "")
+                        node_name = data.get("node_info", {}).get("name") if data.get("node_info") else author
+                        
+                        # Update pipeline visual states based on active node
+                        if node_name == "sql_agent":
+                            st.session_state.pipeline_states["Orchestrator"] = "Running"
+                            st.session_state.pipeline_states["SQL Agent"] = "Running"
+                        elif node_name == "research_agent":
+                            st.session_state.pipeline_states["SQL Agent"] = "Completed"
+                            st.session_state.pipeline_states["Research Agent"] = "Running"
+                        
+                        render_status(status_placeholder, st.session_state.pipeline_states)
+                        
+                        # Parse tool executions
+                        parts = data.get("content", {}).get("parts", []) if data.get("content") else []
+                        for part in parts:
+                            if part.get("function_call"):
+                                fc = part["function_call"]
+                                st.session_state.current_logs.append({
+                                    "timestamp": datetime.datetime.now().strftime("%H:%M:%S"),
+                                    "agent": "SQL Agent" if node_name == "sql_agent" else "Research Agent",
+                                    "tool": fc.get("name", "unknown"),
+                                    "input": json.dumps(fc.get("args", {})),
+                                    "output": "Running..."
+                                })
+                                render_logs(logs_placeholder, st.session_state.current_logs)
+                                
+                            elif part.get("function_response"):
+                                fr = part["function_response"]
+                                tool_name = fr.get("name", "")
+                                raw_resp = fr.get("response")
+                                
+                                # Output summarizer
+                                summary_text = "Completed"
+                                if tool_name == "fetch_fetal_record":
+                                    if isinstance(raw_resp, dict) and "patient_id" in raw_resp:
+                                        summary_text = f"Record Found (Patient: {raw_resp['patient_id']})"
+                                    elif isinstance(raw_resp, dict) and "error" in raw_resp:
+                                        summary_text = f"Fetus not found: {raw_resp.get('error')}"
+                                    else:
+                                        summary_text = "Fetus not found"
+                                elif tool_name == "analyse_vitals":
+                                    if isinstance(raw_resp, list):
+                                        abnormal = sum(1 for x in raw_resp if x.get("status") == "abnormal")
+                                        borderline = sum(1 for x in raw_resp if x.get("status") == "borderline")
+                                        summary_text = f"Analyzed vitals. Abnormal findings: {abnormal}, Borderline: {borderline}"
+                                elif tool_name == "format_report" or tool_name == "run_fetal_analysis":
+                                    summary_text = "Diagnostic report generated"
+                                
+                                # Match tool response to tool call log
+                                updated = False
+                                for log in reversed(st.session_state.current_logs):
+                                    if log["tool"] == tool_name and log["output"] == "Running...":
+                                        log["output"] = summary_text
+                                        updated = True
+                                        break
+                                if not updated:
+                                    st.session_state.current_logs.append({
+                                        "timestamp": datetime.datetime.now().strftime("%H:%M:%S"),
+                                        "agent": "SQL Agent" if node_name == "sql_agent" else "Research Agent",
+                                        "tool": tool_name,
+                                        "input": "N/A",
+                                        "output": summary_text
+                                    })
+                                render_logs(logs_placeholder, st.session_state.current_logs)
+                                
+                    elif event_type == "complete":
+                        st.session_state.pipeline_states = {
+                            "Orchestrator": "Completed",
+                            "SQL Agent": "Completed",
+                            "Research Agent": "Completed"
+                        }
+                        render_status(status_placeholder, st.session_state.pipeline_states)
+                        
+                        st.session_state.current_report = event.get("report")
+                        st.session_state.current_report_markdown = event.get("report_markdown")
+                        
+                        # Classification for history log
+                        classification = "healthy"
+                        if st.session_state.current_report:
+                            analysis = st.session_state.current_report.get("analysis", {})
+                            classification = analysis.get("overall_classification", "healthy")
+                        
+                        # Add to Session History
+                        st.session_state.history.append({
+                            "session_id": st.session_state.session_id,
+                            "fetus_id": st.session_state.current_fetus_id,
+                            "classification": classification,
+                            "timestamp": datetime.datetime.now().strftime("%H:%M %p"),
+                            "report": st.session_state.current_report,
+                            "report_markdown": st.session_state.current_report_markdown,
+                            "logs": st.session_state.current_logs,
+                            "chat_history": []
+                        })
+                        st.success("Analysis complete!")
+                        st.rerun()
+        except Exception as ex:
+            st.error(f"Failed to communicate with backend: {str(ex)}")
 
 # Report output panel
 if st.session_state.current_report:
