@@ -230,3 +230,52 @@ async def test_chat_endpoint_follow_up_caching(mock_diagnostic_report_data):
         assert json_data["report_markdown"] == "The fetus is developing normally."
         assert json_data["report"] is not None
         assert json_data["report"]["header"]["fetus_id"] == "FET-1001"
+
+
+@pytest.mark.asyncio
+async def test_chat_stream_endpoint(mock_diagnostic_report_data):
+    """Test /api/chat/stream with mock events."""
+    import json
+
+    session_id = "test-stream-session-123"
+    message = "Analyze fetus FET-1001"
+    mock_events = [
+        MockEvent(text="Starting stream..."),
+        MockEvent(
+            text="Done",
+            function_responses=[
+                MockFunctionResponse(
+                    name="run_fetal_analysis",
+                    response={
+                        "report": mock_diagnostic_report_data,
+                        "report_markdown": "# Fetal Health Diagnostic Report\n\n## Header\n- **Fetus ID:** FET-1001",
+                    },
+                )
+            ],
+        ),
+    ]
+
+    async def mock_run_async(*args, **kwargs):
+        for event in mock_events:
+            yield event
+
+    with patch(
+        "app.api.endpoints.runner.run_async", side_effect=mock_run_async
+    ) as mock_run:
+        response = client.post(
+            "/api/chat/stream", json={"session_id": session_id, "message": message}
+        )
+        assert response.status_code == 200
+        lines = [line for line in response.text.split("\n") if line.strip()]
+        event_types = []
+        has_complete = False
+        for line in lines:
+            parsed = json.loads(line)
+            event_types.append(parsed["type"])
+            if parsed["type"] == "complete":
+                has_complete = True
+                assert parsed["report"]["header"]["fetus_id"] == "FET-1001"
+                assert "report_markdown" in parsed
+        assert "event" in event_types
+        assert has_complete
+        mock_run.assert_called_once()
