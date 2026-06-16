@@ -53,6 +53,7 @@ settings = Settings()  # type: ignore[call-arg]
 if settings.GEMINI_API_KEY:
     os.environ["GEMINI_API_KEY"] = settings.GEMINI_API_KEY
 
+
 def get_llm() -> BaseLlm:
     """Get initialized LLM connection dynamically based on configured model."""
     return LLMRegistry.new_llm(settings.GEMINI_MODEL)
