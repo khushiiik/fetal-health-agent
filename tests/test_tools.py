@@ -1,16 +1,24 @@
 from datetime import date
-from app.models.fetal_record import FetalRecord, VitalsData
-from app.models.vitals_analysis import VitalResult, VitalStatus, VitalUnit, HealthClassification, VitalsAnalysis, ReferenceRange
-from app.models.error_response import NotFound
+
 from app.models.diagnostic_report import DiagnosticReport
-from app.tools.sql_tools import get_schema, execute_sql_query
+from app.models.error_response import NotFound
+from app.models.fetal_record import FetalRecord, VitalsData
+from app.models.vitals_analysis import (
+    HealthClassification,
+    ReferenceRange,
+    VitalResult,
+    VitalsAnalysis,
+    VitalStatus,
+    VitalUnit,
+)
 from app.tools.research_tools import (
-    lookup_reference_range,
     analyse_vitals,
     classify_health_status,
-    generate_summary,
     format_report,
+    generate_summary,
+    lookup_reference_range,
 )
+from app.tools.sql_tools import execute_sql_query, get_schema
 
 
 def test_get_schema():
@@ -50,7 +58,9 @@ def test_lookup_reference_range():
     assert ref_fhr.unit == VitalUnit.BPM
 
     # Test gestational age dependent range (estimated fetal weight at week 32)
-    ref_weight = lookup_reference_range("estimated_fetal_weight_g", gestational_age_weeks=32)
+    ref_weight = lookup_reference_range(
+        "estimated_fetal_weight_g", gestational_age_weeks=32
+    )
     assert ref_weight is not None
     assert ref_weight.vital_name == "estimated_fetal_weight_g"
     assert ref_weight.min_value == 1600
@@ -75,9 +85,9 @@ def test_analyse_vitals_healthy():
             amniotic_fluid_index_cm=12.5,  # normal
             estimated_fetal_weight_g=1850,  # normal for 32 weeks
         ),
-        notes="Normal scan"
+        notes="Normal scan",
     )
-    
+
     results = analyse_vitals(record)
     assert len(results) == 4
     for r in results:
@@ -97,9 +107,9 @@ def test_analyse_vitals_abnormal():
             amniotic_fluid_index_cm=2.5,  # abnormal (oligohydramnios)
             estimated_fetal_weight_g=1200,  # abnormal (growth restriction)
         ),
-        notes="Abnormal scan"
+        notes="Abnormal scan",
     )
-    
+
     results = analyse_vitals(record)
     assert len(results) == 4
     for r in results:
@@ -108,24 +118,46 @@ def test_analyse_vitals_abnormal():
 
 def test_classify_health_status():
     """Test health classification logic based on individual vitals results."""
-    normal_ref = ReferenceRange(vital_name="fhr", min_value=110, max_value=160, unit=VitalUnit.BPM)
-    
+    normal_ref = ReferenceRange(
+        vital_name="fhr", min_value=110, max_value=160, unit=VitalUnit.BPM
+    )
+
     # 1. Healthy (all normal)
     results_healthy = [
-        VitalResult(vital_name="fhr", measured_value=140, reference_range=normal_ref, status=VitalStatus.NORMAL)
+        VitalResult(
+            vital_name="fhr",
+            measured_value=140,
+            reference_range=normal_ref,
+            status=VitalStatus.NORMAL,
+        )
     ]
     assert classify_health_status(results_healthy) == HealthClassification.HEALTHY
 
     # 2. At Risk (at least one borderline)
     results_at_risk = [
-        VitalResult(vital_name="fhr", measured_value=165, reference_range=normal_ref, status=VitalStatus.BORDERLINE)
+        VitalResult(
+            vital_name="fhr",
+            measured_value=165,
+            reference_range=normal_ref,
+            status=VitalStatus.BORDERLINE,
+        )
     ]
     assert classify_health_status(results_at_risk) == HealthClassification.AT_RISK
 
     # 3. Critical (at least one abnormal)
     results_critical = [
-        VitalResult(vital_name="fhr", measured_value=165, reference_range=normal_ref, status=VitalStatus.BORDERLINE),
-        VitalResult(vital_name="mv", measured_value=3, reference_range=normal_ref, status=VitalStatus.ABNORMAL),
+        VitalResult(
+            vital_name="fhr",
+            measured_value=165,
+            reference_range=normal_ref,
+            status=VitalStatus.BORDERLINE,
+        ),
+        VitalResult(
+            vital_name="mv",
+            measured_value=3,
+            reference_range=normal_ref,
+            status=VitalStatus.ABNORMAL,
+        ),
     ]
     assert classify_health_status(results_critical) == HealthClassification.CRITICAL
 
@@ -133,41 +165,49 @@ def test_classify_health_status():
 def test_generate_summary():
     """Verify natural-language summaries for different classifications."""
     # Healthy summary
-    analysis_healthy = VitalsAnalysis(
-        fetus_id="FET-1001",
-        vital_results=[],
-        overall_classification=HealthClassification.HEALTHY,
-        classification_reason="All normal"
-    )
-    summary_healthy = generate_summary(analysis_healthy)
+    summary_healthy = generate_summary(HealthClassification.HEALTHY, [], "FET-1001")
     assert "Normal fetal monitoring scan" in summary_healthy
 
     # At Risk summary
-    normal_ref = ReferenceRange(vital_name="fhr", min_value=110, max_value=160, unit=VitalUnit.BPM)
-    analysis_at_risk = VitalsAnalysis(
-        fetus_id="FET-1002",
-        vital_results=[
-            VitalResult(vital_name="movement_count_per_hour", measured_value=8, reference_range=normal_ref, status=VitalStatus.BORDERLINE)
-        ],
-        overall_classification=HealthClassification.AT_RISK,
-        classification_reason="Borderline movement count"
+    normal_ref = ReferenceRange(
+        vital_name="movement_count_per_hour",
+        min_value=10,
+        max_value=None,
+        unit=VitalUnit.COUNT,
     )
-    summary_at_risk = generate_summary(analysis_at_risk)
+    results_at_risk = [
+        VitalResult(
+            vital_name="movement_count_per_hour",
+            measured_value=8,
+            reference_range=normal_ref,
+            status=VitalStatus.BORDERLINE,
+        )
+    ]
+    summary_at_risk = generate_summary(
+        HealthClassification.AT_RISK, results_at_risk, "FET-1002"
+    )
     assert "AT-RISK status" in summary_at_risk
-    assert "movement_count_per_hour" in summary_at_risk
+    assert "decreased fetal movement" in summary_at_risk.lower()
 
     # Critical summary
-    analysis_critical = VitalsAnalysis(
-        fetus_id="FET-1003",
-        vital_results=[
-            VitalResult(vital_name="fetal_heart_rate_bpm", measured_value=90, reference_range=normal_ref, status=VitalStatus.ABNORMAL)
-        ],
-        overall_classification=HealthClassification.CRITICAL,
-        classification_reason="Abnormal fetal heart rate"
+    results_critical = [
+        VitalResult(
+            vital_name="fetal_heart_rate_bpm",
+            measured_value=90,
+            reference_range=ReferenceRange(
+                vital_name="fetal_heart_rate_bpm",
+                min_value=110,
+                max_value=160,
+                unit=VitalUnit.BPM,
+            ),
+            status=VitalStatus.ABNORMAL,
+        )
+    ]
+    summary_critical = generate_summary(
+        HealthClassification.CRITICAL, results_critical, "FET-1003"
     )
-    summary_critical = generate_summary(analysis_critical)
     assert "CRITICAL status" in summary_critical
-    assert "fetal_heart_rate_bpm" in summary_critical
+    assert "severe fetal bradycardia" in summary_critical.lower()
 
 
 def test_format_report():
@@ -183,19 +223,20 @@ def test_format_report():
             amniotic_fluid_index_cm=12.5,
             estimated_fetal_weight_g=1850,
         ),
-        notes="Healthy patient scan"
+        notes="Healthy patient scan",
     )
 
     results = analyse_vitals(record)
     analysis = VitalsAnalysis(
         fetus_id=record.fetus_id,
-        vital_results=results,
         overall_classification=classify_health_status(results),
-        classification_reason="All physiological parameters within normal boundaries"
+        classification_reason="All physiological parameters within normal boundaries.",
     )
-    
-    summary = generate_summary(analysis)
-    report_dict = format_report(analysis, summary, record)
+
+    summary = generate_summary(
+        analysis.overall_classification, results, record.fetus_id
+    )
+    report_dict = format_report(analysis, summary, record, results)
 
     assert isinstance(report_dict, dict)
     assert "report" in report_dict

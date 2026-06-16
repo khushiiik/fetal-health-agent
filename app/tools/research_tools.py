@@ -1,19 +1,20 @@
 import json
 from typing import Optional
+
 from app.core.config import settings
-from app.models.fetal_record import FetalRecord
-from app.models.vitals_analysis import (
-    ReferenceRange,
-    VitalResult,
-    VitalStatus,
-    VitalUnit,
-    HealthClassification,
-    VitalsAnalysis,
-)
 from app.models.diagnostic_report import (
     DiagnosticReport,
     ReportHeader,
     VitalsBreakdownRow,
+)
+from app.models.fetal_record import FetalRecord
+from app.models.vitals_analysis import (
+    HealthClassification,
+    ReferenceRange,
+    VitalResult,
+    VitalsAnalysis,
+    VitalStatus,
+    VitalUnit,
 )
 from app.services.report_formatter import report_to_markdown
 
@@ -131,28 +132,144 @@ def classify_health_status(vital_results: list[VitalResult]) -> HealthClassifica
     return HealthClassification.HEALTHY
 
 
-def generate_summary(analysis: VitalsAnalysis) -> str:
+def format_list_with_and(items: list[str]) -> str:
+    if not items:
+        return ""
+    if len(items) == 1:
+        return items[0]
+    if len(items) == 2:
+        return f"{items[0]} and {items[1]}"
+    return ", ".join(items[:-1]) + f", and {items[-1]}"
+
+
+def get_vital_reason_phrase(name: str, value: float, status: VitalStatus) -> str:
+    if status == VitalStatus.NORMAL:
+        return ""
+    if name == "fetal_heart_rate_bpm":
+        if status == VitalStatus.ABNORMAL:
+            return f"severe fetal heart rate deviation ({int(value)} bpm)"
+        return f"borderline fetal heart rate ({int(value)} bpm)"
+    elif name == "movement_count_per_hour":
+        if status == VitalStatus.ABNORMAL:
+            return f"severely decreased fetal movement ({int(value)} counts/hr)"
+        return f"decreased fetal movement ({int(value)} counts/hr)"
+    elif name == "amniotic_fluid_index_cm":
+        if status == VitalStatus.ABNORMAL:
+            return f"severe amniotic fluid deviation ({value} cm)"
+        return f"mild amniotic fluid deviation ({value} cm)"
+    elif name == "estimated_fetal_weight_g":
+        return f"abnormal estimated fetal weight ({int(value)} g)"
+    return ""
+
+
+def get_vital_summary_phrase(
+    name: str,
+    value: float,
+    status: VitalStatus,
+    min_val: Optional[float] = None,
+    max_val: Optional[float] = None,
+) -> str:
+    if status == VitalStatus.NORMAL:
+        return ""
+    if name == "fetal_heart_rate_bpm":
+        if status == VitalStatus.ABNORMAL:
+            return (
+                f"severe fetal tachycardia ({int(value)} bpm)"
+                if value > 180
+                else f"severe fetal bradycardia ({int(value)} bpm)"
+            )
+        return (
+            f"borderline fetal tachycardia ({int(value)} bpm)"
+            if value > 160
+            else f"borderline fetal bradycardia ({int(value)} bpm)"
+        )
+    elif name == "movement_count_per_hour":
+        if status == VitalStatus.ABNORMAL:
+            return f"severely decreased fetal movement ({int(value)} counts/hr)"
+        return f"decreased fetal movement ({int(value)} counts/hr)"
+    elif name == "amniotic_fluid_index_cm":
+        if status == VitalStatus.ABNORMAL:
+            return (
+                f"severe polyhydramnios ({value} cm)"
+                if value > 30.0
+                else f"severe oligohydramnios ({value} cm)"
+            )
+        return (
+            f"mild polyhydramnios ({value} cm)"
+            if value > 25.0
+            else f"mild oligohydramnios ({value} cm)"
+        )
+    elif name == "estimated_fetal_weight_g":
+        if min_val is not None and value < min_val:
+            return f"suspected fetal growth restriction ({int(value)} g)"
+        if max_val is not None and value > max_val:
+            return f"suspected macrosomia ({int(value)} g)"
+        return f"abnormal estimated fetal weight ({int(value)} g)"
+    return ""
+
+
+def generate_classification_reason(
+    vital_results: list[VitalResult], classification: HealthClassification
+) -> str:
+    if classification == HealthClassification.HEALTHY:
+        return "All physiological parameters within normal boundaries."
+
+    phrases = []
+    for r in vital_results:
+        phrase = get_vital_reason_phrase(r.vital_name, r.measured_value, r.status)
+        if phrase:
+            phrases.append(phrase)
+
+    if not phrases:
+        return "Elevated risk detected from vital deviations."
+
+    joined = format_list_with_and(phrases)
+    return joined[0].upper() + joined[1:] + "."
+
+
+def generate_summary(
+    classification: HealthClassification,
+    vital_results: list[VitalResult],
+    fetus_id: str,
+) -> str:
     """Generate a clinician-focused summary based on vitals analysis."""
-    critical_vitals = [
-        r.vital_name for r in analysis.vital_results if r.status == VitalStatus.ABNORMAL
-    ]
-    borderline_vitals = [
-        r.vital_name
-        for r in analysis.vital_results
-        if r.status == VitalStatus.BORDERLINE
-    ]
+    if classification == HealthClassification.HEALTHY:
+        return f"Normal fetal monitoring scan. Fetus {fetus_id} parameters are within the expected physiological range."
 
-    if analysis.overall_classification == HealthClassification.CRITICAL:
-        return f"CRITICAL status flagged for fetus {analysis.fetus_id}. Fetal distress suspected due to abnormal findings in: {', '.join(critical_vitals)}. Immediate clinical evaluation is strongly recommended."
-    elif analysis.overall_classification == HealthClassification.AT_RISK:
-        return f"AT-RISK status flagged for fetus {analysis.fetus_id}. Close monitoring is advised due to borderline findings in: {', '.join(borderline_vitals)}."
+    phrases = []
+    for r in vital_results:
+        phrase = get_vital_summary_phrase(
+            r.vital_name,
+            r.measured_value,
+            r.status,
+            r.reference_range.min_value,
+            r.reference_range.max_value,
+        )
+        if phrase:
+            phrases.append(phrase)
 
-    return f"Normal fetal monitoring scan. Fetus {analysis.fetus_id} parameters are within the expected physiological range."
+    if not phrases:
+        if classification == HealthClassification.CRITICAL:
+            return f"CRITICAL status flagged for fetus {fetus_id}. Immediate clinical evaluation is strongly recommended."
+        else:
+            return f"AT-RISK status flagged for fetus {fetus_id}. Close monitoring is advised."
+
+    joined = format_list_with_and(phrases)
+    first_cap = joined[0].upper() + joined[1:]
+    verb = "was" if len(phrases) == 1 else "were"
+
+    if classification == HealthClassification.CRITICAL:
+        return f"CRITICAL status identified. {first_cap} {verb} observed. Immediate clinical evaluation is strongly recommended."
+    else:
+        return f"AT-RISK status identified. {first_cap} {verb} observed. Close monitoring is recommended."
 
 
 def format_report(
-    analysis: VitalsAnalysis, summary: str, record: FetalRecord
-) -> DiagnosticReport:
+    analysis: VitalsAnalysis,
+    summary: str,
+    record: FetalRecord,
+    vital_results: list[VitalResult],
+) -> dict:
     """Assemble final diagnostic report structure."""
     header = ReportHeader(
         fetus_id=record.fetus_id,
@@ -162,7 +279,7 @@ def format_report(
     )
 
     breakdown = []
-    for r in analysis.vital_results:
+    for r in vital_results:
         breakdown.append(
             VitalsBreakdownRow(
                 vital_name=r.vital_name,
@@ -184,5 +301,20 @@ def format_report(
     )
     return {
         "report": report.model_dump(mode="json"),
-        "report_markdown": report_to_markdown(report)
+        "report_markdown": report_to_markdown(report),
     }
+
+
+def run_fetal_analysis(record: FetalRecord) -> dict:
+    """Analyze the provided fetal record and generate the final diagnostic report in Python."""
+    results = analyse_vitals(record)
+    classification = classify_health_status(results)
+    reason = generate_classification_reason(results, classification)
+
+    analysis = VitalsAnalysis(
+        fetus_id=record.fetus_id,
+        overall_classification=classification,
+        classification_reason=reason,
+    )
+    summary = generate_summary(classification, results, record.fetus_id)
+    return format_report(analysis, summary, record, results)

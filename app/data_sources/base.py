@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
-from app.models.fetal_record import FetalRecord
+
 from app.models.error_response import NotFound
+from app.models.fetal_record import FetalRecord
+
 
 class BaseDataSource(ABC):
     """Abstract base interface for all data source adapters."""

@@ -1,8 +1,9 @@
 import os
 from typing import Optional
+
 from dotenv import load_dotenv
+from google.adk.models import BaseLlm, LLMRegistry
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from google.adk.models import LLMRegistry, BaseLlm
 
 # Force loading environment variables from .env to override system environment
 load_dotenv(override=True)
@@ -14,6 +15,7 @@ class Settings(BaseSettings):
     )
 
     GEMINI_API_KEY: Optional[str] = None
+    GROQ_API_KEY: Optional[str] = None
     GEMINI_MODEL: str
 
     DATA_SOURCE: str
@@ -46,7 +48,10 @@ class Settings(BaseSettings):
     STREAMLIT_PORT: int
 
 
-settings = Settings()
+settings = Settings()  # type: ignore[call-arg]
+
+if settings.GROQ_API_KEY:
+    os.environ["GROQ_API_KEY"] = settings.GROQ_API_KEY
 
 
 def get_llm() -> BaseLlm:

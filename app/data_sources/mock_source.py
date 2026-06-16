@@ -1,10 +1,13 @@
-import os
 import json
+import os
+
+from loguru import logger
+
 from app.core.config import settings
 from app.data_sources.base import BaseDataSource
-from app.models.fetal_record import FetalRecord
 from app.models.error_response import NotFound
-from loguru import logger
+from app.models.fetal_record import FetalRecord
+
 
 class MockDataSource(BaseDataSource):
     """Mock data source adapter reading local JSON records."""
@@ -27,7 +30,9 @@ class MockDataSource(BaseDataSource):
             return NotFound(fetus_id=fetus_id)
         except Exception as e:
             logger.exception("Failed to read mock records")
-            return NotFound(fetus_id=fetus_id, message=f"Failed to read mock records: {str(e)}")
+            return NotFound(
+                fetus_id=fetus_id, message=f"Failed to read mock records: {str(e)}"
+            )
 
     def get_schema(self) -> dict:
         """Returns the schema dictionary transformed from BigQuery JSON format."""
@@ -43,14 +48,14 @@ class MockDataSource(BaseDataSource):
                     schema_dict[name] = {
                         "type": field.get("type"),
                         "description": field.get("description"),
-                        "required": field.get("mode") == "REQUIRED"
+                        "required": field.get("mode") == "REQUIRED",
                     }
                     if "fields" in field:
                         schema_dict[name]["fields"] = {
                             sub.get("name"): {
                                 "type": sub.get("type"),
                                 "description": sub.get("description"),
-                                "required": sub.get("mode") == "REQUIRED"
+                                "required": sub.get("mode") == "REQUIRED",
                             }
                             for sub in field["fields"]
                         }

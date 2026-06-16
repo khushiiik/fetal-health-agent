@@ -1,6 +1,7 @@
-from pydantic import BaseModel, Field
 from enum import Enum
 from typing import Optional
+
+from pydantic import BaseModel, Field
 
 
 class VitalStatus(str, Enum):
@@ -14,12 +15,14 @@ class HealthClassification(str, Enum):
     AT_RISK = "at-risk"
     CRITICAL = "critical"
 
+
 class VitalUnit(str, Enum):
     BPM = "bpm"
     CM = "cm"
     G = "g"
     COUNT = "count"
     COUNTS_HR = "counts/hr"
+
 
 class ReferenceRange(BaseModel):
     vital_name: str
@@ -41,7 +44,6 @@ class VitalResult(BaseModel):
 
 class VitalsAnalysis(BaseModel):
     fetus_id: str
-    vital_results: list[VitalResult]
     overall_classification: HealthClassification
     classification_reason: str = Field(
         ...,

@@ -1,6 +1,7 @@
-from pydantic import BaseModel, Field, ConfigDict
-from typing import Optional
 from datetime import date
+from typing import Optional
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class VitalsData(BaseModel):
@@ -37,4 +38,3 @@ class FetalRecord(BaseModel):
     scan_date: date = Field(..., description="Date of the scan")
     vitals: VitalsData
     notes: Optional[str] = Field(None, description="Additional notes from the scan")
-

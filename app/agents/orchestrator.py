@@ -1,6 +1,7 @@
-from google.adk.workflow import Workflow, START, Edge
-from app.agents.sql_agent import sql_agent
+from google.adk.workflow import START, Edge, Workflow
+
 from app.agents.research_agent import research_agent
+from app.agents.sql_agent import sql_agent
 
 # Connect START trigger to SQL Agent, and SQL Agent to Research Agent sequentially
 edges = [
@@ -11,5 +12,5 @@ edges = [
 orchestrator = Workflow(
     name="orchestrator",
     description="Main orchestrator coordinating SQL and Research agents sequentially.",
-    edges=edges,
+    edges=edges,  # type: ignore[arg-type]
 )
