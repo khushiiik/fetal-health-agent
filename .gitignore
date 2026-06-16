@@ -7,3 +7,5 @@ __pycache__/
 credentials/
 doc.md
 run_qa.py
+.coverage
+.coverage.*
