@@ -15,6 +15,7 @@ from app.models.diagnostic_report import (
     ReportHeader,
     VitalsBreakdownRow,
 )
+from app.services.report_formatter import report_to_markdown
 
 
 def lookup_reference_range(
@@ -181,4 +182,7 @@ def format_report(
         analysis=analysis,
         notes=record.notes,
     )
-    return report.model_dump(mode="json")
+    return {
+        "report": report.model_dump(mode="json"),
+        "report_markdown": report_to_markdown(report)
+    }

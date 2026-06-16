@@ -198,7 +198,12 @@ def test_format_report():
     report_dict = format_report(analysis, summary, record)
 
     assert isinstance(report_dict, dict)
-    report = DiagnosticReport.model_validate(report_dict)
+    assert "report" in report_dict
+    assert "report_markdown" in report_dict
+    assert isinstance(report_dict["report_markdown"], str)
+    assert "Fetal Health Diagnostic Report" in report_dict["report_markdown"]
+
+    report = DiagnosticReport.model_validate(report_dict["report"])
     assert report.header.fetus_id == "FET-1001"
     assert report.header.patient_id == "PAT-2031"
     assert report.header.gestational_age_weeks == 32

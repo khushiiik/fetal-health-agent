@@ -10,5 +10,5 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     session_id: str
-    response: str
     report: Optional[DiagnosticReport] = None
+    report_markdown: Optional[str] = None

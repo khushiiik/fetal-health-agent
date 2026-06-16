@@ -14,8 +14,6 @@ class Settings(BaseSettings):
     )
 
     GEMINI_API_KEY: Optional[str] = None
-    NVIDIA_NIM_API_KEY: Optional[str] = None
-    GROQ_API_KEY: Optional[str] = None
     GEMINI_MODEL: str
 
     DATA_SOURCE: str
@@ -49,12 +47,6 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
-
-if settings.NVIDIA_NIM_API_KEY:
-    os.environ["NVIDIA_NIM_API_KEY"] = settings.NVIDIA_NIM_API_KEY
-
-if settings.GROQ_API_KEY:
-    os.environ["GROQ_API_KEY"] = settings.GROQ_API_KEY
 
 
 def get_llm() -> BaseLlm:

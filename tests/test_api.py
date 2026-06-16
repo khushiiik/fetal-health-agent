@@ -89,11 +89,14 @@ async def test_chat_endpoint_with_session_id(mock_diagnostic_report_data):
     mock_events = [
         MockEvent(text="Starting vitals analysis..."),
         MockEvent(
-            text="Analysis complete. Report generated successfully.",
+            text="# Fetal Health Diagnostic Report\n\n## Header\n- **Fetus ID:** FET-1001",
             function_responses=[
                 MockFunctionResponse(
                     name="format_report",
-                    response=mock_diagnostic_report_data
+                    response={
+                        "report": mock_diagnostic_report_data,
+                        "report_markdown": "# Fetal Health Diagnostic Report\n\n## Header\n- **Fetus ID:** FET-1001"
+                    }
                 )
             ]
         )
@@ -112,7 +115,8 @@ async def test_chat_endpoint_with_session_id(mock_diagnostic_report_data):
         assert response.status_code == 200
         json_data = response.json()
         assert json_data["session_id"] == session_id
-        assert json_data["response"] == "Analysis complete. Report generated successfully."
+        assert "response" not in json_data
+        assert json_data["report_markdown"] == "# Fetal Health Diagnostic Report\n\n## Header\n- **Fetus ID:** FET-1001"
         assert json_data["report"] is not None
         assert json_data["report"]["header"]["fetus_id"] == "FET-1001"
         assert json_data["report"]["header"]["gestational_age_weeks"] == 32
@@ -131,11 +135,14 @@ async def test_chat_endpoint_auto_session_id(mock_diagnostic_report_data):
 
     mock_events = [
         MockEvent(
-            text="Fetus scan shows healthy development.",
+            text="# Fetal Health Diagnostic Report\n\n## Header\n- **Fetus ID:** FET-1001",
             function_responses=[
                 MockFunctionResponse(
                     name="format_report",
-                    response=mock_diagnostic_report_data
+                    response={
+                        "report": mock_diagnostic_report_data,
+                        "report_markdown": "# Fetal Health Diagnostic Report\n\n## Header\n- **Fetus ID:** FET-1001"
+                    }
                 )
             ]
         )
@@ -162,7 +169,8 @@ async def test_chat_endpoint_auto_session_id(mock_diagnostic_report_data):
         except ValueError:
             pytest.fail("session_id is not a valid UUID")
 
-        assert json_data["response"] == "Fetus scan shows healthy development."
+        assert "response" not in json_data
+        assert json_data["report_markdown"] == "# Fetal Health Diagnostic Report\n\n## Header\n- **Fetus ID:** FET-1001"
         assert json_data["report"] is not None
         mock_run.assert_called_once()
 

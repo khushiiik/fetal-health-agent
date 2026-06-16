@@ -6,6 +6,8 @@ from google.adk.runners import InMemoryRunner
 from google.genai import types
 from loguru import logger
 import uuid
+import json
+from app.services.report_formatter import report_to_markdown
 
 router = APIRouter()
 
@@ -29,40 +31,55 @@ async def chat(request: ChatRequest):
         events_list = []
         async for event in events:
             events_list.append(event)
-        response_text = ""
+        report_markdown = ""
         diagnostic_report = None
 
         # Traverse events backwards to extract the final agent response and structured report
         for event in reversed(events_list):
-            if not response_text and event.content and event.content.parts:
+            if not report_markdown and event.content and event.content.parts:
                 text_parts = [part.text for part in event.content.parts if part.text]
                 if text_parts:
-                    response_text = "".join(text_parts).strip()
+                    report_markdown = "".join(text_parts).strip()
 
             if not diagnostic_report:
                 for resp in event.get_function_responses():
                     if resp.name == "format_report":
                         raw_response = resp.response
                         try:
-                            if isinstance(raw_response, DiagnosticReport):
+                            if isinstance(raw_response, dict):
+                                if "report" in raw_response:
+                                    diagnostic_report = DiagnosticReport.model_validate(
+                                        raw_response["report"]
+                                    )
+                                    if "report_markdown" in raw_response and not report_markdown:
+                                        report_markdown = raw_response["report_markdown"]
+                                else:
+                                    diagnostic_report = DiagnosticReport.model_validate(
+                                        raw_response
+                                    )
+                            elif isinstance(raw_response, DiagnosticReport):
                                 diagnostic_report = raw_response
-                            elif isinstance(raw_response, dict):
-                                diagnostic_report = DiagnosticReport.model_validate(
-                                    raw_response
-                                )
                             elif isinstance(raw_response, str):
-                                diagnostic_report = (
-                                    DiagnosticReport.model_validate_json(raw_response)
-                                )
+                                parsed = json.loads(raw_response)
+                                if isinstance(parsed, dict) and "report" in parsed:
+                                    diagnostic_report = DiagnosticReport.model_validate(parsed["report"])
+                                    if "report_markdown" in parsed and not report_markdown:
+                                        report_markdown = parsed["report_markdown"]
+                                else:
+                                    diagnostic_report = DiagnosticReport.model_validate(parsed)
                         except Exception:
                             logger.exception(
                                 "Failed to validate DiagnosticReport from tool response"
                             )
 
+        # Fallback/safety: generate markdown if missing but report is present
+        if diagnostic_report and not report_markdown:
+            report_markdown = report_to_markdown(diagnostic_report)
+
         return ChatResponse(
             session_id=session_id,
-            response=response_text,
             report=diagnostic_report,
+            report_markdown=report_markdown,
         )
     except Exception as e:
         logger.exception("Error during chat workflow execution")
