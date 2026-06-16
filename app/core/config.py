@@ -2,21 +2,21 @@ import os
 from typing import Optional
 from dotenv import load_dotenv
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from google.adk.models.google_llm import Gemini
+from google.adk.models import LLMRegistry, BaseLlm
 
 # Force loading environment variables from .env to override system environment
 load_dotenv(override=True)
 
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        extra="ignore"
+        env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )
 
     GEMINI_API_KEY: Optional[str] = None
+    NVIDIA_NIM_API_KEY: Optional[str] = None
+    GROQ_API_KEY: Optional[str] = None
     GEMINI_MODEL: str
-
 
     DATA_SOURCE: str
 
@@ -47,16 +47,16 @@ class Settings(BaseSettings):
     # Port settings
     STREAMLIT_PORT: int
 
+
 settings = Settings()
 
-print(settings.GEMINI_API_KEY)
-print(os.environ.get("GEMINI_API_KEY"))
+if settings.NVIDIA_NIM_API_KEY:
+    os.environ["NVIDIA_NIM_API_KEY"] = settings.NVIDIA_NIM_API_KEY
 
-if settings.GEMINI_API_KEY:
-    os.environ["GEMINI_API_KEY"] = settings.GEMINI_API_KEY
+if settings.GROQ_API_KEY:
+    os.environ["GROQ_API_KEY"] = settings.GROQ_API_KEY
 
-def get_llm() -> Gemini:
-    """Get initialized Gemini LLM connection."""
-    print("Loaded key:", os.environ.get("GEMINI_API_KEY")[:10])
-    return Gemini(model=settings.GEMINI_MODEL)
 
+def get_llm() -> BaseLlm:
+    """Get initialized LLM connection dynamically based on configured model."""
+    return LLMRegistry.new_llm(settings.GEMINI_MODEL)
