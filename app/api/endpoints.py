@@ -18,13 +18,20 @@ from app.models.diagnostic_report import DiagnosticReport
 from app.services.report_formatter import report_to_markdown
 
 # Global session log context
-session_logs_context = contextvars.ContextVar("session_logs", default=None)
+session_logs_context: contextvars.ContextVar[list[str] | None] = contextvars.ContextVar(
+    "session_logs", default=None
+)
+
+
+def _log_to_session(msg: Any) -> None:
+    logs = session_logs_context.get()
+    if logs is not None:
+        logs.append(str(msg).strip())
+
 
 # Global loguru sink to capture logs during active streamed sessions
 logger.add(
-    lambda msg: session_logs_context.get().append(str(msg).strip())
-    if session_logs_context.get() is not None
-    else None,
+    _log_to_session,
     format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function}:{line} - {message}",
 )
 
@@ -294,7 +301,7 @@ async def chat_stream(request: ChatRequest):
                 events_list = []
                 async for event in events:
                     events_list.append(event)
-                    
+
                     # Yield any logs that have been collected so far!
                     while True:
                         try:
@@ -308,7 +315,7 @@ async def chat_stream(request: ChatRequest):
                                 "message": log_msg,
                             }
                         ) + "\n"
-                        
+
                     yield json.dumps(
                         {
                             "type": "event",
@@ -351,7 +358,10 @@ async def chat_stream(request: ChatRequest):
                                         diagnostic_report = raw_response
                                     elif isinstance(raw_response, str):
                                         parsed = json.loads(raw_response)
-                                        if isinstance(parsed, dict) and "report" in parsed:
+                                        if (
+                                            isinstance(parsed, dict)
+                                            and "report" in parsed
+                                        ):
                                             diagnostic_report = (
                                                 DiagnosticReport.model_validate(
                                                     parsed["report"]
@@ -361,7 +371,9 @@ async def chat_stream(request: ChatRequest):
                                                 "report_markdown" in parsed
                                                 and not report_markdown
                                             ):
-                                                report_markdown = parsed["report_markdown"]
+                                                report_markdown = parsed[
+                                                    "report_markdown"
+                                                ]
                                         else:
                                             diagnostic_report = (
                                                 DiagnosticReport.model_validate(parsed)

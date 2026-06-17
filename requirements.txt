@@ -1,5 +1,5 @@
 # ===== Core =====
-google-adk
+google-adk[extensions]
 google-genai
 
 # ===== API =====

@@ -113,6 +113,23 @@ streamlit run app.py
 ```
 The Streamlit server will start on `http://localhost:8501`.
 
+### 3. Start with Docker (Containerized)
+You can run the entire system containerized using Docker and Docker Compose:
+
+1. Ensure your `.env` configuration file exists at the root of the project with a valid `GEMINI_API_KEY`.
+2. Build and start both containers in the foreground:
+   ```bash
+   docker compose up --build
+   ```
+   To run in the background (detached mode), use `docker compose up -d`.
+3. The services will be accessible at:
+   - Streamlit Frontend: `http://localhost:8501`
+   - FastAPI Backend: `http://localhost:8000` (Docs at `/docs`)
+4. To stop the containers, run:
+   ```bash
+   docker compose down
+   ```
+
 ---
 
 ## Verification & QA Check
