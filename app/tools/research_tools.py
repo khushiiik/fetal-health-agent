@@ -1,6 +1,8 @@
 import json
 from typing import Optional
 
+from loguru import logger
+
 from app.core.config import settings
 from app.models.diagnostic_report import (
     DiagnosticReport,
@@ -55,8 +57,8 @@ def lookup_reference_range(
                 max_value=limits.get("max_normal"),
                 unit=unit_enum,
             )
-    except Exception:
-        pass
+    except Exception as e:
+        logger.exception(f"Failed to lookup reference range for {vital_name}: {e}")
     return None
 
 

@@ -4,6 +4,7 @@ import re
 import uuid
 from typing import Any, Dict, List
 
+from cachetools import TTLCache
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from google.adk.models import LlmRequest
@@ -43,7 +44,71 @@ runner = InMemoryRunner(node=orchestrator)
 runner.auto_create_session = True
 
 # Global session storage for reports mapping session_id -> DiagnosticReport
-session_reports: dict[str, DiagnosticReport] = {}
+# Controlled memory usage with max 1024 items and 1-hour Time-To-Live (TTL)
+session_reports: TTLCache[str, DiagnosticReport] = TTLCache(maxsize=1024, ttl=3600)
+
+
+def extract_diagnostic_report(
+    events_list: list[Any],
+) -> tuple[DiagnosticReport | None, str]:
+    """Extracts DiagnosticReport and report_markdown from a list of events."""
+    diagnostic_report = None
+    report_markdown = ""
+
+    # 1. Traverse events backwards to extract the final agent response and structured report
+    for event in reversed(events_list):
+        if not diagnostic_report:
+            for resp in event.get_function_responses():
+                if resp.name == "format_report" or resp.name == "run_fetal_analysis":
+                    raw_response = resp.response
+                    try:
+                        if isinstance(raw_response, dict):
+                            if "report" in raw_response:
+                                diagnostic_report = DiagnosticReport.model_validate(
+                                    raw_response["report"]
+                                )
+                                if (
+                                    "report_markdown" in raw_response
+                                    and not report_markdown
+                                ):
+                                    report_markdown = raw_response["report_markdown"]
+                            else:
+                                diagnostic_report = DiagnosticReport.model_validate(
+                                    raw_response
+                                )
+                        elif isinstance(raw_response, DiagnosticReport):
+                            diagnostic_report = raw_response
+                        elif isinstance(raw_response, str):
+                            parsed = json.loads(raw_response)
+                            if isinstance(parsed, dict) and "report" in parsed:
+                                diagnostic_report = DiagnosticReport.model_validate(
+                                    parsed["report"]
+                                )
+                                if "report_markdown" in parsed and not report_markdown:
+                                    report_markdown = parsed["report_markdown"]
+                            else:
+                                diagnostic_report = DiagnosticReport.model_validate(
+                                    parsed
+                                )
+                    except Exception as e:
+                        logger.exception(
+                            f"Failed to validate DiagnosticReport from tool response for {resp.name}: {e}"
+                        )
+
+    # 2. Fallback/safety: generate markdown if missing but report is present
+    if diagnostic_report and not report_markdown:
+        report_markdown = report_to_markdown(diagnostic_report)
+
+    # 3. If no report was generated (e.g. error messages), fetch final text response
+    if not report_markdown:
+        for event in reversed(events_list):
+            if event.content and event.content.parts:
+                text_parts = [part.text for part in event.content.parts if part.text]
+                if text_parts:
+                    report_markdown = "".join(text_parts).strip()
+                    break
+
+    return diagnostic_report, report_markdown
 
 
 @router.post("/chat", response_model=ChatResponse)
@@ -109,71 +174,8 @@ async def chat(request: ChatRequest):
         events_list = []
         async for event in events:
             events_list.append(event)
-        report_markdown = ""
-        diagnostic_report = None
 
-        # Traverse events backwards to extract the final agent response and structured report
-        for event in reversed(events_list):
-            if not diagnostic_report:
-                for resp in event.get_function_responses():
-                    if (
-                        resp.name == "format_report"
-                        or resp.name == "run_fetal_analysis"
-                    ):
-                        raw_response = resp.response
-                        try:
-                            if isinstance(raw_response, dict):
-                                if "report" in raw_response:
-                                    diagnostic_report = DiagnosticReport.model_validate(
-                                        raw_response["report"]
-                                    )
-                                    if (
-                                        "report_markdown" in raw_response
-                                        and not report_markdown
-                                    ):
-                                        report_markdown = raw_response[
-                                            "report_markdown"
-                                        ]
-                                else:
-                                    diagnostic_report = DiagnosticReport.model_validate(
-                                        raw_response
-                                    )
-                            elif isinstance(raw_response, DiagnosticReport):
-                                diagnostic_report = raw_response
-                            elif isinstance(raw_response, str):
-                                parsed = json.loads(raw_response)
-                                if isinstance(parsed, dict) and "report" in parsed:
-                                    diagnostic_report = DiagnosticReport.model_validate(
-                                        parsed["report"]
-                                    )
-                                    if (
-                                        "report_markdown" in parsed
-                                        and not report_markdown
-                                    ):
-                                        report_markdown = parsed["report_markdown"]
-                                else:
-                                    diagnostic_report = DiagnosticReport.model_validate(
-                                        parsed
-                                    )
-                        except Exception:
-                            logger.exception(
-                                "Failed to validate DiagnosticReport from tool response"
-                            )
-
-        # Fallback/safety: generate markdown if missing but report is present
-        if diagnostic_report and not report_markdown:
-            report_markdown = report_to_markdown(diagnostic_report)
-
-        # If no report was generated (e.g. error messages), fetch final text response
-        if not report_markdown:
-            for event in reversed(events_list):
-                if event.content and event.content.parts:
-                    text_parts = [
-                        part.text for part in event.content.parts if part.text
-                    ]
-                    if text_parts:
-                        report_markdown = "".join(text_parts).strip()
-                        break
+        diagnostic_report, report_markdown = extract_diagnostic_report(events_list)
 
         # Cache the report if successfully generated
         if diagnostic_report:
@@ -325,74 +327,9 @@ async def chat_stream(request: ChatRequest):
                     ) + "\n"
 
                 # 3. Post-execution extraction
-                for event in reversed(events_list):
-                    if not diagnostic_report:
-                        for resp in event.get_function_responses():
-                            if (
-                                resp.name == "format_report"
-                                or resp.name == "run_fetal_analysis"
-                            ):
-                                raw_response = resp.response
-                                try:
-                                    if isinstance(raw_response, dict):
-                                        if "report" in raw_response:
-                                            diagnostic_report = (
-                                                DiagnosticReport.model_validate(
-                                                    raw_response["report"]
-                                                )
-                                            )
-                                            if (
-                                                "report_markdown" in raw_response
-                                                and not report_markdown
-                                            ):
-                                                report_markdown = raw_response[
-                                                    "report_markdown"
-                                                ]
-                                        else:
-                                            diagnostic_report = (
-                                                DiagnosticReport.model_validate(
-                                                    raw_response
-                                                )
-                                            )
-                                    elif isinstance(raw_response, DiagnosticReport):
-                                        diagnostic_report = raw_response
-                                    elif isinstance(raw_response, str):
-                                        parsed = json.loads(raw_response)
-                                        if (
-                                            isinstance(parsed, dict)
-                                            and "report" in parsed
-                                        ):
-                                            diagnostic_report = (
-                                                DiagnosticReport.model_validate(
-                                                    parsed["report"]
-                                                )
-                                            )
-                                            if (
-                                                "report_markdown" in parsed
-                                                and not report_markdown
-                                            ):
-                                                report_markdown = parsed[
-                                                    "report_markdown"
-                                                ]
-                                        else:
-                                            diagnostic_report = (
-                                                DiagnosticReport.model_validate(parsed)
-                                            )
-                                except Exception:
-                                    pass
-
-                if diagnostic_report and not report_markdown:
-                    report_markdown = report_to_markdown(diagnostic_report)
-
-                if not report_markdown:
-                    for event in reversed(events_list):
-                        if event.content and event.content.parts:
-                            text_parts = [
-                                part.text for part in event.content.parts if part.text
-                            ]
-                            if text_parts:
-                                report_markdown = "".join(text_parts).strip()
-                                break
+                diagnostic_report, report_markdown = extract_diagnostic_report(
+                    events_list
+                )
 
                 if diagnostic_report:
                     session_reports[session_id] = diagnostic_report
